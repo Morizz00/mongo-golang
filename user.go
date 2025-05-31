@@ -119,3 +119,35 @@ func (uc *UserController) DeleteUser(w http.ResponseWriter, r *http.Request, ps 
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "Deleted user %s\n", id)
 }
+func (uc *UserController) GetAllUsers(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cursor, err := uc.collection.Find(ctx, bson.M{})
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "error fetching users")
+		return
+	}
+	defer cursor.Close(ctx)
+
+	var users []models.User
+	if err = cursor.All(ctx, &users); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Error decoding users")
+		return
+	}
+	if users == nil {
+		users = []models.User{}
+	}
+	uj, err := json.Marshal(users)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Error Encoding Response")
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(uj)
+}
+
